@@ -2,7 +2,9 @@ const {
   SignUpCommand,
   ConfirmSignUpCommand,
   InitiateAuthCommand,
-  ResendConfirmationCodeCommand, // <-- add
+  ResendConfirmationCodeCommand,
+  ForgotPasswordCommand,            // <-- add
+  ConfirmForgotPasswordCommand,     // <-- add
 } = require("@aws-sdk/client-cognito-identity-provider");
 const cognitoClient = require("../config/cognito");
 const User = require("../models/User"); // MongoDB model
@@ -129,6 +131,54 @@ exports.resendVerification = async (req, res) => {
       code === "UserNotFoundException" ? 404 :
       code === "LimitExceededException" ? 429 :
       code === "TooManyRequestsException" ? 429 :
+      400;
+    res.status(status).json({ error: err.message, code });
+  }
+};
+
+// Request a password reset code
+exports.forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: "Email is required.", code: "BadRequest" });
+  try {
+    const command = new ForgotPasswordCommand({
+      ClientId: process.env.COGNITO_CLIENT_ID,
+      Username: email,
+    });
+    await cognitoClient.send(command);
+    res.json({ message: "A password reset code has been sent to your email." });
+  } catch (err) {
+    const code = err.name || "AuthError";
+    const status =
+      code === "UserNotFoundException" ? 404 :
+      code === "LimitExceededException" ? 429 :
+      code === "TooManyRequestsException" ? 429 :
+      400;
+    res.status(status).json({ error: err.message, code });
+  }
+};
+
+// Confirm reset with code + new password
+exports.resetPassword = async (req, res) => {
+  const { email, code, newPassword } = req.body;
+  if (!email || !code || !newPassword) {
+    return res.status(400).json({ error: "Email, code, and newPassword are required.", code: "BadRequest" });
+  }
+  try {
+    const command = new ConfirmForgotPasswordCommand({
+      ClientId: process.env.COGNITO_CLIENT_ID,
+      Username: email,
+      ConfirmationCode: code,
+      Password: newPassword,
+    });
+    await cognitoClient.send(command);
+    res.json({ message: "Password reset successful. You can now sign in." });
+  } catch (err) {
+    const code = err.name || "AuthError";
+    const status =
+      code === "CodeMismatchException" ? 400 :
+      code === "ExpiredCodeException" ? 400 :
+      code === "InvalidPasswordException" ? 400 :
       400;
     res.status(status).json({ error: err.message, code });
   }
