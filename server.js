@@ -1,6 +1,25 @@
 const express = require("express");
-require("dotenv").config();
+const path = require("path");
+
+// Load .env from the correct location
+require("dotenv").config({ path: path.join(__dirname, '.env') });
+
 const cors = require("cors");
+
+// Validate critical environment variables
+const requiredEnvVars = ['MONGO_URI', 'AWS_REGION', 'COGNITO_CLIENT_ID'];
+requiredEnvVars.forEach(varName => {
+  if (!process.env[varName]) {
+    console.error(`❌ Missing required environment variable: ${varName}`);
+    process.exit(1);
+  }
+});
+
+console.log("✅ Environment variables loaded:", {
+  MONGO_URI: process.env.MONGO_URI ? '***hidden***' : 'MISSING',
+  AWS_REGION: process.env.AWS_REGION,
+  PORT: process.env.PORT
+});
 
 // Update these paths - add "./src/" prefix
 const authRoutes = require("./src/routes/authRoutes");
