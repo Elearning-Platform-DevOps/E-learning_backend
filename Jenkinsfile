@@ -1,5 +1,8 @@
 pipeline {
   agent any
+  tools {
+    nodejs 'NodeJS-25'  // Match the NodeJS tool name you configured in Jenkins
+  }
   environment {
     AWS_REGION = 'ap-south-1'
     ASG_NAME   = 'elearning-prod-asg'
