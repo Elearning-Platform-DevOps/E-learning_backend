@@ -1,6 +1,6 @@
 pipeline {
   agent any
-  tools { nodejs 'NodeJS-25' }
+  tools { nodejs 'NodeJS-20' }  // make sure this matches Manage Jenkins > Tools
   environment {
     AWS_REGION = 'ap-south-1'
     ASG_NAME   = 'elearning-prod-asg'
@@ -8,14 +8,7 @@ pipeline {
   }
   stages {
     stage('Checkout') { steps { checkout scm } }
-    stage('Install deps') {
-      steps {
-        // Ensure Node from the tool is on PATH for this stage
-        withNodeJS('NodeJS-25') {
-          sh 'node -v && npm -v && npm ci || npm install'
-        }
-      }
-    }
+    stage('Install deps') { steps { sh 'node -v && npm -v && npm ci || npm install' } }
     stage('Deploy to EC2') {
       steps {
         withAWS(credentials: 'aws-credentials', region: env.AWS_REGION) {
