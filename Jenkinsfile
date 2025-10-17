@@ -20,8 +20,15 @@ pipeline {
                 --query 'Reservations[].Instances[].PublicIpAddress' --output text)
               echo "Targets: $IPS"
               for IP in $IPS; do
+                echo "Prepping $IP (install rsync/node/pm2 if missing)..."
+                ssh -o StrictHostKeyChecking=no ec2-user@$IP '
+                  sudo dnf install -y rsync nodejs npm >/dev/null 2>&1 || true
+                  command -v pm2 >/dev/null 2>&1 || sudo npm i -g pm2
+                '
+                echo "Syncing files to $IP..."
                 rsync -avz --delete --exclude node_modules --exclude .git --exclude .env \
                   -e "ssh -o StrictHostKeyChecking=no" ./ ec2-user@$IP:/home/ec2-user/backend/
+                echo "Installing deps and restarting PM2 on $IP..."
                 ssh -o StrictHostKeyChecking=no ec2-user@$IP "
                   cd /home/ec2-user/backend &&
                   npm ci || npm install --production &&
