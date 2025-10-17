@@ -1,8 +1,6 @@
 pipeline {
   agent any
-  tools {
-    nodejs 'NodeJS-25'  // Match the NodeJS tool name you configured in Jenkins
-  }
+  tools { nodejs 'NodeJS-25' }
   environment {
     AWS_REGION = 'ap-south-1'
     ASG_NAME   = 'elearning-prod-asg'
@@ -10,22 +8,26 @@ pipeline {
   }
   stages {
     stage('Checkout') { steps { checkout scm } }
-    stage('Install deps') { steps { sh 'npm ci || npm install' } }
+    stage('Install deps') {
+      steps {
+        // Ensure Node from the tool is on PATH for this stage
+        withNodeJS('NodeJS-25') {
+          sh 'node -v && npm -v && npm ci || npm install'
+        }
+      }
+    }
     stage('Deploy to EC2') {
       steps {
         withAWS(credentials: 'aws-credentials', region: env.AWS_REGION) {
           sshagent(credentials: ['ec2-ssh-key']) {
             sh '''
               set -e
-              echo "Fetching backend instance IPs from ASG ${ASG_NAME}..."
               IPS=$(aws ec2 describe-instances \
                 --filters "Name=tag:aws:autoscaling:groupName,Values=${ASG_NAME}" "Name=instance-state-name,Values=running" \
                 --query 'Reservations[].Instances[].PublicIpAddress' --output text)
               echo "Targets: $IPS"
               for IP in $IPS; do
-                echo "Deploying to $IP..."
-                rsync -avz --delete \
-                  --exclude node_modules --exclude .git --exclude .env \
+                rsync -avz --delete --exclude node_modules --exclude .git --exclude .env \
                   -e "ssh -o StrictHostKeyChecking=no" ./ ec2-user@$IP:/home/ec2-user/backend/
                 ssh -o StrictHostKeyChecking=no ec2-user@$IP "
                   cd /home/ec2-user/backend &&
