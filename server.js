@@ -27,6 +27,23 @@ app.use(cors({
 
 app.use(express.json());
 
+// ADD THIS HEALTH ENDPOINT - CRITICAL FOR ALB!
+app.get('/health', (req, res) => {
+  const healthcheck = {
+    uptime: process.uptime(),
+    message: 'OK',
+    timestamp: Date.now(),
+    mongoStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+  };
+  
+  try {
+    res.status(200).json(healthcheck);
+  } catch (error) {
+    healthcheck.message = error;
+    res.status(503).json(healthcheck);
+  }
+});
+
 // Routes
 app.use("/auth", authRoutes);
 app.use("/courses", courseRoutes);
@@ -35,4 +52,6 @@ app.use("/progress", progressRoutes);
 app.use("/quiz-attempts", quizAttemptRoutes);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
